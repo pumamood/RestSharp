@@ -1241,4 +1241,3 @@ public class XmlDeserializerTests {
         Assert.Equal(3, topItem.SubItems[1].Id);
     }
 }
-}
