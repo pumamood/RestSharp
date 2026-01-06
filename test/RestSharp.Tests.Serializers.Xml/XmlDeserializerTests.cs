@@ -1076,4 +1076,161 @@ public class XmlDeserializerTests {
 
         Assert.Null(p.ReadOnlyProxy);
     }
+
+    [Fact]
+    public void Should_Not_Include_Nested_Elements_In_List_Deserialization() {
+        const string xml = @"
+<root>
+    <categories>
+        <category>
+            <id>1</id>
+            <name>Main Category</name>
+            <subcategories>
+                <category>
+                    <id>2</id>
+                    <name>Sub Category 1</name>
+                </category>
+                <category>
+                    <id>3</id>
+                    <name>Sub Category 2</name>
+                </category>
+            </subcategories>
+        </category>
+    </categories>
+</root>";
+        
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<CategoryRoot>(new() { Content = xml })!;
+
+        // Should only have 1 category (the main one), not 3 (including nested ones)
+        Assert.NotNull(result.Categories);
+        Assert.Single(result.Categories);
+        Assert.Equal(1, result.Categories[0].Id);
+        Assert.Equal("Main Category", result.Categories[0].Name);
+        
+        // The nested subcategories should be deserialized correctly
+        Assert.NotNull(result.Categories[0].Subcategories);
+        Assert.Equal(2, result.Categories[0].Subcategories.Count);
+        Assert.Equal(2, result.Categories[0].Subcategories[0].Id);
+        Assert.Equal("Sub Category 1", result.Categories[0].Subcategories[0].Name);
+        Assert.Equal(3, result.Categories[0].Subcategories[1].Id);
+        Assert.Equal("Sub Category 2", result.Categories[0].Subcategories[1].Name);
+    }
+
+    [Fact]
+    public void Should_Deserialize_List_With_Container_Element() {
+        const string xml = @"
+<root>
+    <categories>
+        <category>
+            <id>1</id>
+            <name>Category 1</name>
+        </category>
+        <category>
+            <id>2</id>
+            <name>Category 2</name>
+        </category>
+    </categories>
+</root>";
+        
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<CategoryRoot>(new() { Content = xml })!;
+
+        Assert.NotNull(result.Categories);
+        Assert.Equal(2, result.Categories.Count);
+        Assert.Equal(1, result.Categories[0].Id);
+        Assert.Equal("Category 1", result.Categories[0].Name);
+        Assert.Equal(2, result.Categories[1].Id);
+        Assert.Equal("Category 2", result.Categories[1].Name);
+    }
+
+    [Fact]
+    public void Should_Handle_Empty_List_With_Container() {
+        const string xml = @"
+<root>
+    <categories>
+    </categories>
+</root>";
+        
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<CategoryRoot>(new() { Content = xml })!;
+
+        Assert.NotNull(result.Categories);
+        Assert.Empty(result.Categories);
+    }
+
+    [Fact]
+    public void Should_Handle_Missing_Container_Element() {
+        const string xml = @"
+<root>
+</root>";
+        
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<CategoryRoot>(new() { Content = xml })!;
+
+        Assert.NotNull(result.Categories);
+        Assert.Empty(result.Categories);
+    }
+
+    [Fact]
+    public void Should_Not_Include_Nested_Elements_When_Deserializing_To_List_Directly() {
+        // This test demonstrates the actual bug in HandleListDerivative
+        const string xml = @"
+<categories>
+    <category>
+        <id>1</id>
+        <name>Main Category</name>
+        <subcategories>
+            <category>
+                <id>2</id>
+                <name>Sub Category 1</name>
+            </category>
+            <category>
+                <id>3</id>
+                <name>Sub Category 2</name>
+            </category>
+        </subcategories>
+    </category>
+</categories>";
+        
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<List<Category>>(new() { Content = xml })!;
+
+        // Should only have 1 category (the main one), not 3 (including nested ones)
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("Main Category", result[0].Name);
+    }
+
+    [Fact]
+    public void Should_Not_Include_Nested_Elements_When_Using_List_Derivative() {
+        // This test uses a class that derives from List<T>, which triggers HandleListDerivative
+        const string xml = @"
+<categories>
+    <category>
+        <id>1</id>
+        <name>Main Category</name>
+        <subcategories>
+            <category>
+                <id>2</id>
+                <name>Sub Category 1</name>
+            </category>
+            <category>
+                <id>3</id>
+                <name>Sub Category 2</name>
+            </category>
+        </subcategories>
+    </category>
+</categories>";
+        
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<CategoryList>(new() { Content = xml })!;
+
+        // Should only have 1 category (the main one), not 3 (including nested ones)
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("Main Category", result[0].Name);
+    }
 }
