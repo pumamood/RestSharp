@@ -89,6 +89,11 @@ public class XmlDeserializer : IXmlDeserializer, IWithRootElement, IWithDateForm
         }
     }
 
+    static bool IsValidXmlElementName(string name) {
+        // Generic type names contain backtick (e.g., "List`1") which is invalid in XML element names
+        return !name.Contains('`');
+    }
+
     protected virtual object Map(object x, XElement? root) {
         var objType = x.GetType();
         var props   = objType.GetProperties();
@@ -338,7 +343,7 @@ public class XmlDeserializer : IXmlDeserializer, IWithRootElement, IWithDateForm
         XElement? container = null;
         
         // Try property name first (skip if it contains invalid XML name characters like ` in generic types)
-        if (!propName.Contains('`')) {
+        if (IsValidXmlElementName(propName)) {
             container = GetElementByName(root, propName.AsNamespaced(Namespace));
         }
         
@@ -357,7 +362,7 @@ public class XmlDeserializer : IXmlDeserializer, IWithRootElement, IWithDateForm
         }
         
         // Check if root itself matches the container naming
-        if (container == null && !propName.Contains('`')) {
+        if (container == null && IsValidXmlElementName(propName)) {
             var rootName = root.Name.LocalName;
             var propNameLower = propName.ToLower(Culture);
             var pluralLower = name?.ToLower(Culture) + "s";
