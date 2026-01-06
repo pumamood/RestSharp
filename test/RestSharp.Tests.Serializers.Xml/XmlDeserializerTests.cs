@@ -1076,4 +1076,168 @@ public class XmlDeserializerTests {
 
         Assert.Null(p.ReadOnlyProxy);
     }
+
+    [Fact]
+    public void Deserialize_Nested_List_Should_Not_Include_Deeply_Nested_Items() {
+        // Bug #1 test: HandleListDerivative should use Elements() on containers, not Descendants()
+        const string xml = """
+            <root>
+                <categories>
+                    <category>
+                        <id>1</id>
+                        <subcategories>
+                            <category><id>2</id></category>
+                            <category><id>3</id></category>
+                        </subcategories>
+                    </category>
+                </categories>
+            </root>
+            """;
+
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<CategoryContainer>(new RestResponse { Content = xml })!;
+
+        // Should only have 1 category (id=1), not 3 (id=1,2,3)
+        Assert.NotNull(result);
+        Assert.NotNull(result.Categories);
+        Assert.Single(result.Categories);
+        Assert.Equal(1, result.Categories[0].Id);
+    }
+
+    [Fact]
+    public void Deserialize_RootElement_Should_Not_Throw_On_Duplicate_Nested_Names() {
+        // Bug #2 test: RootElement selection should handle duplicate names gracefully
+        const string xml = """
+            <prestashop>
+                <categories>
+                    <category>
+                        <id>72</id>
+                        <associations>
+                            <categories>
+                                <category><id>74</id></category>
+                            </categories>
+                        </associations>
+                    </category>
+                </categories>
+            </prestashop>
+            """;
+
+        var deserializer = new XmlDeserializer { RootElement = "categories" };
+        
+        // Should not throw InvalidOperationException: Sequence contains more than one element
+        var exception = Record.Exception(() => 
+            deserializer.Deserialize<PrestashopCategoryResponse>(new RestResponse { Content = xml })
+        );
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void Deserialize_RootElement_Should_Prefer_Shallowest_Match() {
+        // Bug #2 test: When multiple elements match RootElement, prefer the shallowest one
+        const string xml = """
+            <prestashop>
+                <categories>
+                    <category>
+                        <id>72</id>
+                        <associations>
+                            <categories>
+                                <category><id>74</id></category>
+                            </categories>
+                        </associations>
+                    </category>
+                </categories>
+            </prestashop>
+            """;
+
+        var deserializer = new XmlDeserializer { RootElement = "categories" };
+        var result = deserializer.Deserialize<PrestashopCategoryResponse>(new RestResponse { Content = xml })!;
+
+        // Should deserialize from the top-level <categories>, not the nested one
+        Assert.NotNull(result);
+        Assert.NotNull(result.Categories);
+        Assert.Single(result.Categories);
+        Assert.Equal(72, result.Categories[0].Id);
+    }
+
+    [Fact]
+    public void Deserialize_RootElement_Should_Try_Direct_Child_First() {
+        // Bug #2 test: Should try Element() before DescendantsAndSelf()
+        const string xml = """
+            <root>
+                <data>
+                    <one>direct</one>
+                </data>
+            </root>
+            """;
+
+        var deserializer = new XmlDeserializer { RootElement = "data" };
+        var result = deserializer.Deserialize<SimpleStruct>(new RestResponse { Content = xml });
+
+        Assert.Equal("direct", result.One);
+    }
+
+    [Fact]
+    public void Deserialize_List_With_Container_Should_Use_Direct_Children_Only() {
+        // Test that container-based list deserialization uses Elements() not Descendants()
+        const string xml = """
+            <root>
+                <categories>
+                    <category>
+                        <id>10</id>
+                        <subcategories>
+                            <category><id>20</id></category>
+                        </subcategories>
+                    </category>
+                    <category>
+                        <id>11</id>
+                    </category>
+                </categories>
+            </root>
+            """;
+
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<CategoryContainer>(new RestResponse { Content = xml })!;
+
+        Assert.NotNull(result.Categories);
+        Assert.Equal(2, result.Categories.Count);
+        Assert.Equal(10, result.Categories[0].Id);
+        Assert.Equal(11, result.Categories[1].Id);
+    }
+
+    [Fact]
+    public void Deserialize_Nested_Categories_Should_Also_Use_Direct_Children() {
+        // Test that nested subcategories also correctly use direct children
+        const string xml = """
+            <root>
+                <categories>
+                    <category>
+                        <id>1</id>
+                        <subcategories>
+                            <category><id>2</id></category>
+                            <category>
+                                <id>3</id>
+                                <subcategories>
+                                    <category><id>4</id></category>
+                                </subcategories>
+                            </category>
+                        </subcategories>
+                    </category>
+                </categories>
+            </root>
+            """;
+
+        var deserializer = new XmlDeserializer();
+        var result = deserializer.Deserialize<CategoryContainer>(new RestResponse { Content = xml })!;
+
+        Assert.NotNull(result.Categories);
+        Assert.Single(result.Categories);
+        
+        var topCategory = result.Categories[0];
+        Assert.Equal(1, topCategory.Id);
+        Assert.NotNull(topCategory.Subcategories);
+        Assert.Equal(2, topCategory.Subcategories.Count);
+        Assert.Equal(2, topCategory.Subcategories[0].Id);
+        Assert.Equal(3, topCategory.Subcategories[1].Id);
+    }
 }
