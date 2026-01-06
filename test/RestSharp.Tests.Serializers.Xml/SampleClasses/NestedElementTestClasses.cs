@@ -11,10 +11,6 @@ public class CategoryContainer {
     public List<Category> Categories { get; set; } = new();
 }
 
-public class PrestashopResponse {
-    public CategoryContainer Categories { get; set; } = new();
-}
-
 public class CategoryWithAssociations {
     public int Id { get; set; }
     public CategoryAssociations Associations { get; set; }
@@ -24,6 +20,6 @@ public class CategoryAssociations {
     public List<Category> Categories { get; set; }
 }
 
-public class PrestashopCategoryResponse {
+public class CategoriesResponse {
     public List<CategoryWithAssociations> Categories { get; set; } = new();
 }

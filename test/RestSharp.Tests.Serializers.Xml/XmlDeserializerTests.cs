@@ -1108,7 +1108,7 @@ public class XmlDeserializerTests {
     public void Deserialize_RootElement_Should_Not_Throw_On_Duplicate_Nested_Names() {
         // Bug #2 test: RootElement selection should handle duplicate names gracefully
         const string xml = """
-            <prestashop>
+            <root>
                 <categories>
                     <category>
                         <id>72</id>
@@ -1119,14 +1119,14 @@ public class XmlDeserializerTests {
                         </associations>
                     </category>
                 </categories>
-            </prestashop>
+            </root>
             """;
 
         var deserializer = new XmlDeserializer { RootElement = "categories" };
         
         // Should not throw InvalidOperationException: Sequence contains more than one element
         var exception = Record.Exception(() => 
-            deserializer.Deserialize<PrestashopCategoryResponse>(new RestResponse { Content = xml })
+            deserializer.Deserialize<CategoriesResponse>(new RestResponse { Content = xml })
         );
 
         Assert.Null(exception);
@@ -1136,7 +1136,7 @@ public class XmlDeserializerTests {
     public void Deserialize_RootElement_Should_Prefer_Shallowest_Match() {
         // Bug #2 test: When multiple elements match RootElement, prefer the shallowest one
         const string xml = """
-            <prestashop>
+            <root>
                 <categories>
                     <category>
                         <id>72</id>
@@ -1147,11 +1147,11 @@ public class XmlDeserializerTests {
                         </associations>
                     </category>
                 </categories>
-            </prestashop>
+            </root>
             """;
 
         var deserializer = new XmlDeserializer { RootElement = "categories" };
-        var result = deserializer.Deserialize<PrestashopCategoryResponse>(new RestResponse { Content = xml })!;
+        var result = deserializer.Deserialize<CategoriesResponse>(new RestResponse { Content = xml })!;
 
         // Should deserialize from the top-level <categories>, not the nested one
         Assert.NotNull(result);
